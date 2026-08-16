@@ -1,0 +1,54 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 1088124,
+    "appName": "Space Ship",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "1.0.0"
+    },
+    "icon": "icon.png",
+    "vender": "zeprogress",
+    "description": "Original arcade-style space shooter for Amazfit Bip Max",
+    "_pikeCompatibled": 1
+  },
+  "permissions": [],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "3.0",
+      "target": "4.4",
+      "minVersion": "3.0"
+    }
+  },
+  "targets": {
+    "bip-max": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/index/index"
+          ]
+        }
+      },
+      "platforms": [
+        {
+          "name": "PikeW",
+          "deviceSource": 11206915
+        }
+      ],
+      "designWidth": 432,
+      "st": "s",
+      "sr": "w432",
+      "dw": 432
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "Space Ship"
+    },
+    "ru-RU": {
+      "appName": "Space Ship"
+    }
+  },
+  "defaultLanguage": "en-US"
+}
