@@ -55,12 +55,9 @@ Page({
     try { pausePalmScreenOff({ duration: 0 }) } catch (e) {}
     try { setScrollLock({ lock: true }) } catch (e) {}
     try {
-      onGesture({
-        callback: () => true
-      })
+      onGesture({ callback: () => true })
     } catch (e) {}
 
-    // background
     createWidget(widget.FILL_RECT, {
       x: 0, y: 0, w: W, h: H, color: 0x030308
     })
@@ -75,43 +72,34 @@ Page({
       text_style: text_style.NONE
     })
 
-    // pool: enemies
     this.state.enemyViews = []
     for (let i = 0; i < MAX_ENEMY; i++) {
-      const v = createWidget(widget.FILL_RECT, {
+      this.state.enemyViews.push(createWidget(widget.FILL_RECT, {
         x: -100, y: -100, w: 22, h: 16, color: 0x44aaff
-      })
-      this.state.enemyViews.push(v)
+      }))
     }
 
-    // pool: bunkers
     this.state.bunkerViews = []
     for (let i = 0; i < MAX_BUNKER; i++) {
-      const v = createWidget(widget.FILL_RECT, {
+      this.state.bunkerViews.push(createWidget(widget.FILL_RECT, {
         x: -200, y: -200, w: 52, h: 26, color: 0x228844
-      })
-      this.state.bunkerViews.push(v)
+      }))
     }
 
-    // pool: player bullets
     this.state.pbViews = []
     for (let i = 0; i < MAX_PB; i++) {
-      const v = createWidget(widget.FILL_RECT, {
+      this.state.pbViews.push(createWidget(widget.FILL_RECT, {
         x: -50, y: -50, w: 4, h: 12, color: 0xffee44
-      })
-      this.state.pbViews.push(v)
+      }))
     }
 
-    // pool: enemy bullets
     this.state.ebViews = []
     for (let i = 0; i < MAX_EB; i++) {
-      const v = createWidget(widget.FILL_RECT, {
+      this.state.ebViews.push(createWidget(widget.FILL_RECT, {
         x: -50, y: -50, w: 4, h: 12, color: 0xff3355
-      })
-      this.state.ebViews.push(v)
+      }))
     }
 
-    // ship (body + cockpit)
     this.state.shipWidgets = {
       body: createWidget(widget.FILL_RECT, {
         x: W / 2 - 20, y: H - 44, w: 40, h: 12, color: 0x33ccff
@@ -121,18 +109,10 @@ Page({
       })
     }
 
-    // full-screen touch catcher on top (alpha 0 if supported)
+    // Transparent full-screen touch layer (must be last = on top)
     const touch = createWidget(widget.FILL_RECT, {
-      x: 0, y: 0, w: W, h: H, color: 0x000000
+      x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0
     })
-    try {
-      touch.setProperty(prop.MORE, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0 })
-    } catch (e) {
-      // if alpha fails, move touch behind by not covering - use body events only
-    }
-    // Prefer listening on ship body area via whole screen - recreate transparent approach:
-    // use CLICK on a top invisible layer; if alpha not work, still use it with setEnable false on bg
-
     touch.addEventListener(event.CLICK_DOWN, (info) => {
       this.moveShip(info.x)
       if (this.state.gameOver) this.resetGame()
@@ -140,10 +120,6 @@ Page({
     touch.addEventListener(event.MOVE, (info) => {
       this.moveShip(info.x)
     })
-
-    // If alpha not supported, touch is black - hide by putting enemies after touch... 
-    // Better: don't use black overlay. Attach MOVE to first created bg is blocked.
-    // Zepp: transparent FILL_RECT alpha works on API 3+.
 
     this.resetGame()
     this.startLoop()
@@ -184,7 +160,7 @@ Page({
     this.spawnBunkers()
     this.spawnEnemies()
     this.syncViews()
-    this.updateHud(true)
+    this.updateHud()
   },
 
   spawnBunkers() {
@@ -243,7 +219,6 @@ Page({
       this.state.fireCooldown = 5
     }
 
-    // player bullets
     const bullets = this.state.bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].y -= 26
@@ -276,7 +251,6 @@ Page({
     this.moveEnemies()
     this.enemyShoot()
 
-    // enemy bullets
     const eb = this.state.eBullets
     for (let i = eb.length - 1; i >= 0; i--) {
       eb[i].y += 14 + Math.min(this.state.wave, 6)
@@ -322,7 +296,7 @@ Page({
     this.state.hudTick++
     if (this.state.hudTick >= 6) {
       this.state.hudTick = 0
-      this.updateHud(false)
+      this.updateHud()
     }
   },
 
@@ -396,7 +370,7 @@ Page({
     this.state.eBullets = []
     if (this.state.lives <= 0) {
       this.state.gameOver = true
-      this.updateHud(true)
+      this.updateHud()
     } else {
       this.moveShip(W / 2)
       this.spawnBunkers()
@@ -405,11 +379,10 @@ Page({
           this.state.enemies[i].y -= 36
         }
       }
-      this.updateHud(true)
+      this.updateHud()
     }
   },
 
-  // Move pre-created widgets — no full-screen redraw
   syncViews() {
     const enemies = this.state.enemies
     for (let i = 0; i < MAX_ENEMY; i++) {
@@ -486,7 +459,7 @@ Page({
     }
   },
 
-  updateHud(force) {
+  updateHud() {
     if (!this.state.hud) return
     const t = this.state.gameOver
       ? 'GAME OVER ' + this.state.score + ' TAP'
