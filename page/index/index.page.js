@@ -1,9 +1,11 @@
-import { createWidget, widget, prop, align, text_style, event } from '@zos/ui'
+import { createWidget, widget, prop, align, text_style, event, setStatusBarVisible } from '@zos/ui'
 
 const W = 432
 const H = 514
-const FPS = 12
+const FPS = 20
 const TICK = Math.floor(1000 / FPS)
+
+const ROW_SCORE = [40, 30, 20, 20, 10]
 
 Page({
   state: {
@@ -16,54 +18,53 @@ Page({
     lives: 3,
     wave: 1,
     shipX: W / 2,
-    shipY: H - 70,
-    shipW: 36,
-    shipH: 22,
+    shipY: H - 52,
+    shipW: 40,
+    shipH: 18,
     bullets: [],
+    eBullets: [],
     enemies: [],
+    bunkers: [],
     enemyDir: 1,
-    enemyStepDown: 18,
+    enemyStepDown: 14,
     fireCooldown: 0,
-    touchActive: false
+    enemyFireCd: 0,
+    touchActive: false,
+    aliveCount: 0
   },
 
   build() {
+    try { setStatusBarVisible(false) } catch (e) {}
+
     createWidget(widget.FILL_RECT, {
-      x: 0, y: 0, w: W, h: H, color: 0x050510
+      x: 0, y: 0, w: W, h: H, color: 0x030308
     })
 
     this.state.hud = createWidget(widget.TEXT, {
-      x: 8,
-      y: 6,
-      w: W - 16,
-      h: 28,
-      text: 'SCORE 0   LIVES 3',
+      x: 4,
+      y: 2,
+      w: W - 8,
+      h: 22,
+      text: '0',
       text_size: 18,
-      color: 0xa0e0ff,
-      align_h: align.LEFT,
+      color: 0xcccccc,
+      align_h: align.CENTER_H,
       align_v: align.CENTER_V,
       text_style: text_style.NONE
     })
 
     const canvas = createWidget(widget.CANVAS, {
-      x: 0,
-      y: 0,
-      w: W,
-      h: H
+      x: 0, y: 0, w: W, h: H
     })
     this.state.canvas = canvas
 
     canvas.addEventListener(event.CLICK_DOWN, (info) => {
       this.state.touchActive = true
       this.moveShip(info.x)
-      if (this.state.gameOver) {
-        this.resetGame()
-      }
+      if (this.state.gameOver) this.resetGame()
     })
     canvas.addEventListener(event.MOVE, (info) => {
-      if (this.state.touchActive) {
-        this.moveShip(info.x)
-      }
+      this.moveShip(info.x)
     })
     canvas.addEventListener(event.CLICK_UP, () => {
       this.state.touchActive = false
@@ -76,8 +77,8 @@ Page({
   moveShip(x) {
     const half = this.state.shipW / 2
     let nx = x
-    if (nx < half + 4) nx = half + 4
-    if (nx > W - half - 4) nx = W - half - 4
+    if (nx < half + 2) nx = half + 2
+    if (nx > W - half - 2) nx = W - half - 2
     this.state.shipX = nx
   },
 
@@ -86,25 +87,41 @@ Page({
     this.state.lives = 3
     this.state.wave = 1
     this.state.bullets = []
+    this.state.eBullets = []
     this.state.enemyDir = 1
     this.state.fireCooldown = 0
+    this.state.enemyFireCd = 20
     this.state.gameOver = false
     this.state.running = true
     this.state.shipX = W / 2
+    this.spawnBunkers()
     this.spawnEnemies()
     this.updateHud()
   },
 
+  spawnBunkers() {
+    const list = []
+    const bw = 52
+    const bh = 28
+    const n = 4
+    const gap = Math.floor((W - n * bw) / (n + 1))
+    const y = this.state.shipY - 68
+    for (let i = 0; i < n; i++) {
+      list.push({ x: gap + i * (bw + gap), y: y, w: bw, h: bh, hp: 8 })
+    }
+    this.state.bunkers = list
+  },
+
   spawnEnemies() {
-    const rows = 4
-    const cols = 6
-    const ew = 28
-    const eh = 20
-    const gapX = 12
-    const gapY = 14
+    const rows = 5
+    const cols = 8
+    const ew = 22
+    const eh = 16
+    const gapX = 8
+    const gapY = 10
     const totalW = cols * ew + (cols - 1) * gapX
     const startX = Math.floor((W - totalW) / 2)
-    const startY = 48
+    const startY = 28
     const list = []
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -114,20 +131,20 @@ Page({
           w: ew,
           h: eh,
           alive: true,
-          type: r < 1 ? 2 : 1
+          row: r,
+          score: ROW_SCORE[r] || 10
         })
       }
     }
     this.state.enemies = list
+    this.state.aliveCount = rows * cols
   },
 
   startLoop() {
     if (this.state.timer) {
       try { clearInterval(this.state.timer) } catch (e) {}
     }
-    this.state.timer = setInterval(() => {
-      this.tick()
-    }, TICK)
+    this.state.timer = setInterval(() => this.tick(), TICK)
   },
 
   tick() {
@@ -140,49 +157,83 @@ Page({
     this.state.fireCooldown--
     if (this.state.fireCooldown <= 0) {
       this.fire()
-      this.state.fireCooldown = 8
+      this.state.fireCooldown = 5
     }
 
     const bullets = this.state.bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
-      bullets[i].y -= 18
-      if (bullets[i].y < 20) bullets.splice(i, 1)
-    }
-
-    this.moveEnemies()
-
-    for (let i = bullets.length - 1; i >= 0; i--) {
-      const b = bullets[i]
+      bullets[i].y -= 22
+      if (bullets[i].y < 8) {
+        bullets.splice(i, 1)
+        continue
+      }
+      if (this.hitBunker(bullets[i].x, bullets[i].y, true)) {
+        bullets.splice(i, 1)
+        continue
+      }
       let hit = false
       for (let j = 0; j < this.state.enemies.length; j++) {
         const e = this.state.enemies[j]
         if (!e.alive) continue
-        if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
+        if (
+          bullets[i].x >= e.x &&
+          bullets[i].x <= e.x + e.w &&
+          bullets[i].y >= e.y &&
+          bullets[i].y <= e.y + e.h
+        ) {
           e.alive = false
+          this.state.aliveCount--
+          this.state.score += e.score
           hit = true
-          this.state.score += e.type === 2 ? 30 : 10
           break
         }
       }
       if (hit) bullets.splice(i, 1)
     }
 
-    for (let j = 0; j < this.state.enemies.length; j++) {
-      const e = this.state.enemies[j]
-      if (!e.alive) continue
-      if (e.y + e.h >= this.state.shipY) {
+    this.moveEnemies()
+    this.enemyShoot()
+
+    const eb = this.state.eBullets
+    for (let i = eb.length - 1; i >= 0; i--) {
+      eb[i].y += 14 + Math.min(this.state.wave, 8)
+      if (eb[i].y > H - 8) {
+        eb.splice(i, 1)
+        continue
+      }
+      if (this.hitBunker(eb[i].x, eb[i].y, false)) {
+        eb.splice(i, 1)
+        continue
+      }
+      const sx = this.state.shipX
+      const sy = this.state.shipY
+      const hw = this.state.shipW / 2
+      if (
+        eb[i].x >= sx - hw &&
+        eb[i].x <= sx + hw &&
+        eb[i].y >= sy &&
+        eb[i].y <= sy + this.state.shipH
+      ) {
+        eb.splice(i, 1)
         this.loseLife()
         break
       }
     }
 
-    let alive = 0
     for (let j = 0; j < this.state.enemies.length; j++) {
-      if (this.state.enemies[j].alive) alive++
+      const e = this.state.enemies[j]
+      if (e.alive && e.y + e.h >= this.state.shipY - 4) {
+        this.loseLife()
+        break
+      }
     }
-    if (alive === 0) {
+
+    if (this.state.aliveCount <= 0) {
       this.state.wave++
-      this.state.score += 100
+      this.state.score += 50 * this.state.wave
+      this.state.bullets = []
+      this.state.eBullets = []
+      this.spawnBunkers()
       this.spawnEnemies()
     }
 
@@ -191,11 +242,35 @@ Page({
   },
 
   fire() {
-    this.state.bullets.push({
-      x: this.state.shipX,
-      y: this.state.shipY - 8,
-      r: 4
-    })
+    if (this.state.bullets.length >= 4) return
+    this.state.bullets.push({ x: this.state.shipX, y: this.state.shipY - 6, r: 3 })
+  },
+
+  enemyShoot() {
+    this.state.enemyFireCd--
+    if (this.state.enemyFireCd > 0) return
+    const base = 18 - Math.min(this.state.wave, 10)
+    this.state.enemyFireCd = base + (this.state.aliveCount > 20 ? 8 : 3)
+    const candidates = []
+    for (let i = 0; i < this.state.enemies.length; i++) {
+      const e = this.state.enemies[i]
+      if (e.alive) candidates.push(e)
+    }
+    if (candidates.length === 0) return
+    const e = candidates[Math.floor(Math.random() * candidates.length)]
+    this.state.eBullets.push({ x: e.x + e.w / 2, y: e.y + e.h, r: 3 })
+  },
+
+  hitBunker(x, y, fromPlayer) {
+    for (let i = 0; i < this.state.bunkers.length; i++) {
+      const b = this.state.bunkers[i]
+      if (b.hp <= 0) continue
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        b.hp -= fromPlayer ? 1 : 2
+        return true
+      }
+    }
+    return false
   },
 
   moveEnemies() {
@@ -211,24 +286,21 @@ Page({
     }
     if (!any) return
 
+    const haste = 1 + (40 - this.state.aliveCount) * 0.08
+    const speed = (4 + this.state.wave * 0.6) * haste
     let dir = this.state.enemyDir
-    const speed = 3 + Math.min(this.state.wave, 6)
     let hitEdge = false
-    if (dir > 0 && maxX + speed >= W - 8) hitEdge = true
-    if (dir < 0 && minX - speed <= 8) hitEdge = true
+    if (dir > 0 && maxX + speed >= W - 6) hitEdge = true
+    if (dir < 0 && minX - speed <= 6) hitEdge = true
 
     if (hitEdge) {
       this.state.enemyDir = -dir
       for (let i = 0; i < this.state.enemies.length; i++) {
-        if (this.state.enemies[i].alive) {
-          this.state.enemies[i].y += this.state.enemyStepDown
-        }
+        if (this.state.enemies[i].alive) this.state.enemies[i].y += this.state.enemyStepDown
       }
     } else {
       for (let i = 0; i < this.state.enemies.length; i++) {
-        if (this.state.enemies[i].alive) {
-          this.state.enemies[i].x += dir * speed
-        }
+        if (this.state.enemies[i].alive) this.state.enemies[i].x += dir * speed
       }
     }
   },
@@ -236,23 +308,27 @@ Page({
   loseLife() {
     this.state.lives--
     this.state.bullets = []
+    this.state.eBullets = []
     if (this.state.lives <= 0) {
       this.state.gameOver = true
     } else {
-      this.spawnEnemies()
       this.state.shipX = W / 2
+      this.spawnBunkers()
+      for (let i = 0; i < this.state.enemies.length; i++) {
+        if (this.state.enemies[i].alive && this.state.enemies[i].y > 200) {
+          this.state.enemies[i].y -= 40
+        }
+      }
     }
   },
 
   updateHud() {
     if (!this.state.hud) return
     const t = this.state.gameOver
-      ? 'GAME OVER  ' + this.state.score + '  tap'
-      : 'S ' + this.state.score + '  L ' + this.state.lives + '  W ' + this.state.wave
+      ? 'GAME OVER ' + this.state.score + ' TAP'
+      : '' + this.state.score + '  HP' + this.state.lives + '  W' + this.state.wave
     try {
-      this.state.hud.setProperty(prop.MORE, {
-        x: 8, y: 6, w: W - 16, h: 28, text: t
-      })
+      this.state.hud.setProperty(prop.MORE, { x: 4, y: 2, w: W - 8, h: 22, text: t })
     } catch (e) {
       try { this.state.hud.setProperty(prop.TEXT, t) } catch (e2) {}
     }
@@ -262,36 +338,45 @@ Page({
     const c = this.state.canvas
     if (!c) return
     try { c.clear({ x: 0, y: 0, w: W, h: H }) } catch (e) {}
-    c.drawRect({ x1: 0, y1: 0, x2: W, y2: H, color: 0x050510 })
+    c.drawRect({ x1: 0, y1: 0, x2: W, y2: H, color: 0x030308 })
 
+    for (let i = 0; i < this.state.bunkers.length; i++) {
+      const b = this.state.bunkers[i]
+      if (b.hp <= 0) continue
+      const g = 40 + b.hp * 20
+      const col = (g << 8) | 0x40
+      c.drawRect({
+        x1: Math.floor(b.x), y1: Math.floor(b.y),
+        x2: Math.floor(b.x + b.w), y2: Math.floor(b.y + b.h),
+        color: col
+      })
+    }
+
+    const colors = [0xff4466, 0xff8844, 0x44cc66, 0x44cc66, 0x44aaff]
     for (let i = 0; i < this.state.enemies.length; i++) {
       const e = this.state.enemies[i]
       if (!e.alive) continue
-      const col = e.type === 2 ? 0xff5577 : 0x44dd88
+      const col = colors[e.row] || 0x44aaff
       c.drawRect({
         x1: Math.floor(e.x), y1: Math.floor(e.y),
         x2: Math.floor(e.x + e.w), y2: Math.floor(e.y + e.h),
         color: col
-      })
-      c.drawRect({
-        x1: Math.floor(e.x + 5), y1: Math.floor(e.y + 6),
-        x2: Math.floor(e.x + 11), y2: Math.floor(e.y + 12),
-        color: 0x050510
-      })
-      c.drawRect({
-        x1: Math.floor(e.x + e.w - 11), y1: Math.floor(e.y + 6),
-        x2: Math.floor(e.x + e.w - 5), y2: Math.floor(e.y + 12),
-        color: 0x050510
       })
     }
 
     for (let i = 0; i < this.state.bullets.length; i++) {
       const b = this.state.bullets[i]
       c.drawCircle({
-        center_x: Math.floor(b.x),
-        center_y: Math.floor(b.y),
-        radius: b.r,
-        color: 0xffee55
+        center_x: Math.floor(b.x), center_y: Math.floor(b.y),
+        radius: b.r, color: 0xffee44
+      })
+    }
+
+    for (let i = 0; i < this.state.eBullets.length; i++) {
+      const b = this.state.eBullets[i]
+      c.drawCircle({
+        center_x: Math.floor(b.x), center_y: Math.floor(b.y),
+        radius: b.r, color: 0xff3355
       })
     }
 
@@ -299,17 +384,11 @@ Page({
     const sy = Math.floor(this.state.shipY)
     const hw = Math.floor(this.state.shipW / 2)
     c.drawRect({
-      x1: sx - hw, y1: sy, x2: sx + hw, y2: sy + this.state.shipH, color: 0x4ecbff
+      x1: sx - hw, y1: sy + 6, x2: sx + hw, y2: sy + this.state.shipH, color: 0x33ccff
     })
     c.drawRect({
-      x1: sx - 6, y1: sy - 10, x2: sx + 6, y2: sy, color: 0xffffff
+      x1: sx - 8, y1: sy, x2: sx + 8, y2: sy + 10, color: 0xffffff
     })
-
-    if (this.state.gameOver) {
-      c.drawRect({
-        x1: 40, y1: H / 2 - 40, x2: W - 40, y2: H / 2 + 40, color: 0x1a1020
-      })
-    }
   },
 
   onDestroy() {
