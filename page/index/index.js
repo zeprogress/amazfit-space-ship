@@ -53,32 +53,19 @@ Page({
     })
     this.state.canvas = canvas
 
-    // Full-screen touch layer for swipe control
-    const touch = createWidget(widget.FILL_RECT, {
-      x: 0,
-      y: 0,
-      w: W,
-      h: H,
-      color: 0x000000
-    })
-    // transparent-ish: alpha if supported, else setEnable on canvas only
-    try {
-      touch.setProperty(prop.MORE, { x: 0, y: 0, w: W, h: H, color: 0x000000, alpha: 0 })
-    } catch (e) {}
-
-    touch.addEventListener(event.CLICK_DOWN, (info) => {
+    canvas.addEventListener(event.CLICK_DOWN, (info) => {
       this.state.touchActive = true
       this.moveShip(info.x)
       if (this.state.gameOver) {
         this.resetGame()
       }
     })
-    touch.addEventListener(event.MOVE, (info) => {
+    canvas.addEventListener(event.MOVE, (info) => {
       if (this.state.touchActive) {
         this.moveShip(info.x)
       }
     })
-    touch.addEventListener(event.CLICK_UP, () => {
+    canvas.addEventListener(event.CLICK_UP, () => {
       this.state.touchActive = false
     })
 
@@ -150,24 +137,20 @@ Page({
       return
     }
 
-    // Auto-fire
     this.state.fireCooldown--
     if (this.state.fireCooldown <= 0) {
       this.fire()
       this.state.fireCooldown = 8
     }
 
-    // Move bullets
     const bullets = this.state.bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].y -= 18
       if (bullets[i].y < 20) bullets.splice(i, 1)
     }
 
-    // Move enemies
     this.moveEnemies()
 
-    // Collisions bullet vs enemy
     for (let i = bullets.length - 1; i >= 0; i--) {
       const b = bullets[i]
       let hit = false
@@ -184,7 +167,6 @@ Page({
       if (hit) bullets.splice(i, 1)
     }
 
-    // Enemy reached ship / bottom
     for (let j = 0; j < this.state.enemies.length; j++) {
       const e = this.state.enemies[j]
       if (!e.alive) continue
@@ -194,7 +176,6 @@ Page({
       }
     }
 
-    // Wave cleared
     let alive = 0
     for (let j = 0; j < this.state.enemies.length; j++) {
       if (this.state.enemies[j].alive) alive++
@@ -257,7 +238,6 @@ Page({
     this.state.bullets = []
     if (this.state.lives <= 0) {
       this.state.gameOver = true
-      this.state.running = true
     } else {
       this.spawnEnemies()
       this.state.shipX = W / 2
@@ -271,60 +251,40 @@ Page({
       : 'S ' + this.state.score + '  L ' + this.state.lives + '  W ' + this.state.wave
     try {
       this.state.hud.setProperty(prop.MORE, {
-        x: 8,
-        y: 6,
-        w: W - 16,
-        h: 28,
-        text: t
+        x: 8, y: 6, w: W - 16, h: 28, text: t
       })
     } catch (e) {
-      try {
-        this.state.hud.setProperty(prop.TEXT, t)
-      } catch (e2) {}
+      try { this.state.hud.setProperty(prop.TEXT, t) } catch (e2) {}
     }
   },
 
   draw() {
     const c = this.state.canvas
     if (!c) return
-
-    try {
-      c.clear({ x: 0, y: 0, w: W, h: H })
-    } catch (e) {}
-
-    // stars background (simple)
+    try { c.clear({ x: 0, y: 0, w: W, h: H }) } catch (e) {}
     c.drawRect({ x1: 0, y1: 0, x2: W, y2: H, color: 0x050510 })
 
-    // enemies
     for (let i = 0; i < this.state.enemies.length; i++) {
       const e = this.state.enemies[i]
       if (!e.alive) continue
       const col = e.type === 2 ? 0xff5577 : 0x44dd88
       c.drawRect({
-        x1: Math.floor(e.x),
-        y1: Math.floor(e.y),
-        x2: Math.floor(e.x + e.w),
-        y2: Math.floor(e.y + e.h),
+        x1: Math.floor(e.x), y1: Math.floor(e.y),
+        x2: Math.floor(e.x + e.w), y2: Math.floor(e.y + e.h),
         color: col
       })
-      // "eyes"
       c.drawRect({
-        x1: Math.floor(e.x + 5),
-        y1: Math.floor(e.y + 6),
-        x2: Math.floor(e.x + 11),
-        y2: Math.floor(e.y + 12),
+        x1: Math.floor(e.x + 5), y1: Math.floor(e.y + 6),
+        x2: Math.floor(e.x + 11), y2: Math.floor(e.y + 12),
         color: 0x050510
       })
       c.drawRect({
-        x1: Math.floor(e.x + e.w - 11),
-        y1: Math.floor(e.y + 6),
-        x2: Math.floor(e.x + e.w - 5),
-        y2: Math.floor(e.y + 12),
+        x1: Math.floor(e.x + e.w - 11), y1: Math.floor(e.y + 6),
+        x2: Math.floor(e.x + e.w - 5), y2: Math.floor(e.y + 12),
         color: 0x050510
       })
     }
 
-    // bullets
     for (let i = 0; i < this.state.bullets.length; i++) {
       const b = this.state.bullets[i]
       c.drawCircle({
@@ -335,32 +295,19 @@ Page({
       })
     }
 
-    // ship (triangle-ish with rects)
     const sx = Math.floor(this.state.shipX)
     const sy = Math.floor(this.state.shipY)
     const hw = Math.floor(this.state.shipW / 2)
     c.drawRect({
-      x1: sx - hw,
-      y1: sy,
-      x2: sx + hw,
-      y2: sy + this.state.shipH,
-      color: 0x4ecbff
+      x1: sx - hw, y1: sy, x2: sx + hw, y2: sy + this.state.shipH, color: 0x4ecbff
     })
     c.drawRect({
-      x1: sx - 6,
-      y1: sy - 10,
-      x2: sx + 6,
-      y2: sy,
-      color: 0xffffff
+      x1: sx - 6, y1: sy - 10, x2: sx + 6, y2: sy, color: 0xffffff
     })
 
     if (this.state.gameOver) {
       c.drawRect({
-        x1: 40,
-        y1: H / 2 - 40,
-        x2: W - 40,
-        y2: H / 2 + 40,
-        color: 0x1a1020
+        x1: 40, y1: H / 2 - 40, x2: W - 40, y2: H / 2 + 40, color: 0x1a1020
       })
     }
   },
