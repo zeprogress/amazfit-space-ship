@@ -5,7 +5,7 @@ import { setPageBrightTime, pauseDropWristScreenOff, pausePalmScreenOff } from '
 
 const W = 432
 const H = 514
-const FPS = 60
+const FPS = 30
 const TICK = Math.floor(1000 / FPS)
 
 const ROW_SCORE = [40, 30, 20, 20, 10]
@@ -29,7 +29,7 @@ Page({
     enemies: [],
     bunkers: [],
     enemyDir: 1,
-    enemyStepDown: 14,
+    enemyStepDown: 20,
     fireCooldown: 0,
     enemyFireCd: 0,
     touchActive: false,
@@ -117,7 +117,7 @@ Page({
     this.state.eBullets = []
     this.state.enemyDir = 1
     this.state.fireCooldown = 0
-    this.state.enemyFireCd = 50
+    this.state.enemyFireCd = 15
     this.state.gameOver = false
     this.state.running = true
     this.state.shipX = W / 2
@@ -184,12 +184,12 @@ Page({
     this.state.fireCooldown--
     if (this.state.fireCooldown <= 0) {
       this.fire()
-      this.state.fireCooldown = 14
+      this.state.fireCooldown = 6
     }
 
     const bullets = this.state.bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
-      bullets[i].y -= 8
+      bullets[i].y -= 28
       if (bullets[i].y < 8) {
         bullets.splice(i, 1)
         continue
@@ -223,7 +223,7 @@ Page({
 
     const eb = this.state.eBullets
     for (let i = eb.length - 1; i >= 0; i--) {
-      eb[i].y += 5 + Math.min(this.state.wave, 8) * 0.35
+      eb[i].y += 16 + Math.min(this.state.wave, 8)
       if (eb[i].y > H - 8) {
         eb.splice(i, 1)
         continue
@@ -276,8 +276,8 @@ Page({
   enemyShoot() {
     this.state.enemyFireCd--
     if (this.state.enemyFireCd > 0) return
-    const base = 45 - Math.min(this.state.wave, 10) * 2
-    this.state.enemyFireCd = base + (this.state.aliveCount > 20 ? 20 : 8)
+    const base = 12 - Math.min(this.state.wave, 8)
+    this.state.enemyFireCd = base + (this.state.aliveCount > 20 ? 6 : 2)
     const candidates = []
     for (let i = 0; i < this.state.enemies.length; i++) {
       const e = this.state.enemies[i]
@@ -314,7 +314,7 @@ Page({
     if (!any) return
 
     const haste = 1 + (40 - this.state.aliveCount) * 0.08
-    const speed = (1.4 + this.state.wave * 0.22) * haste
+    const speed = (6 + this.state.wave * 1.0) * haste
     let dir = this.state.enemyDir
     let hitEdge = false
     if (dir > 0 && maxX + speed >= W - 6) hitEdge = true
