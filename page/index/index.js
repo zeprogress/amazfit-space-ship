@@ -1,4 +1,7 @@
 import { createWidget, widget, prop, align, text_style, event, setStatusBarVisible } from '@zos/ui'
+import { setScrollLock } from '@zos/page'
+import { onGesture, GESTURE_RIGHT, GESTURE_LEFT, GESTURE_UP, GESTURE_DOWN } from '@zos/interaction'
+import { setPageBrightTime, pauseDropWristScreenOff, pausePalmScreenOff } from '@zos/display'
 
 const W = 432
 const H = 514
@@ -35,6 +38,33 @@ Page({
 
   build() {
     try { setStatusBarVisible(false) } catch (e) {}
+
+    // Keep screen on while playing
+    try {
+      setPageBrightTime({ brightTime: 2147483000 })
+    } catch (e) {}
+    try {
+      pauseDropWristScreenOff({ duration: 0 })
+    } catch (e) {}
+    try {
+      pausePalmScreenOff({ duration: 0 })
+    } catch (e) {}
+
+    // Lock page scroll + block system right-swipe back
+    try {
+      setScrollLock({ lock: true })
+    } catch (e) {}
+    try {
+      onGesture({
+        callback: (g) => {
+          // true = prevent default (exit on RIGHT swipe)
+          if (g === GESTURE_RIGHT || g === GESTURE_LEFT || g === GESTURE_UP || g === GESTURE_DOWN) {
+            return true
+          }
+          return true
+        }
+      })
+    } catch (e) {}
 
     createWidget(widget.FILL_RECT, {
       x: 0, y: 0, w: W, h: H, color: 0x030308
